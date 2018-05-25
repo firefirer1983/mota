@@ -8,14 +8,30 @@ using namespace mota;
 using namespace mota::mdk;
 
 Downloader::Downloader()
-  : state_(kStopped)
+  : state_(kInvalid)
 {
 
 }
 
-bool Downloader::start(const string &src, const string &dst)
+bool Downloader::link(const string &src, const string &dst) {
+  srcUrl_ = src;
+  dstUrl_ = dst;
+  setState(kLinked);
+  return true;
+}
+
+bool Downloader::start()
 {
-	srcUrl_ = src;
-	dstUrl_ = dst;
-	return true;
+
+  return true;
+}
+
+bool Downloader::stop()
+{
+  return true;
+}
+
+bool Downloader::pause()
+{
+  return true;
 }

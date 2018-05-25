@@ -1,5 +1,5 @@
 CXX_FLAGS   := -std=c++11 -ggdb3 -Wall -Werror
-MUDUO_DIR  := ../muduo_stdc11
+MUDUO_DIR  := ../../muduo_stdc11
 MOTA_DIR := ../../
 
 INC     := .
