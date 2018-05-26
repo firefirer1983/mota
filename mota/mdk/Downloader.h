@@ -25,15 +25,16 @@ class Downloader {
 public:
   Downloader();
   ~Downloader();
-  bool link(const string &src, const string &dst);
-  bool start();
-  bool stop();
-  bool pause();
+  void link(const string &src, const string &dst);
+  void start();
+  void stop();
+  void pause();
 
 private:
   enum States { kInvalid, kLinked, kStopped, kPaused, kDownloading };
-  shared_ptr<EventLoop> eventLoopSptr_;
-  shared_ptr<TcpClient> clientSptr_;
+  std::unique_ptr<EventLoopThread> eventLoopThread_;
+  std::unique_ptr<TcpClient> client_;
+  EventLoop *loop_;
   string srcUrl_;
   string dstUrl_;
   States state_;

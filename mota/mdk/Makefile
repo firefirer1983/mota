@@ -1,6 +1,9 @@
 CXX_FLAGS   := -std=c++11 -ggdb3 -Wall -Werror
+AR_FLAGS    = crs
 MUDUO_DIR  := ../../muduo_stdc11
 MOTA_DIR := ../../
+
+include $(MOTA_DIR)/tool-chain.mk
 
 INC     := .
 INC     += $(MUDUO_DIR)
@@ -12,16 +15,19 @@ SRCS    := $(wildcard *.cpp)
 HEADS   := $(wildcard *.h)
 OBJS    := $(patsubst %.cpp, %.o, $(SRCS))
 
-TARGET	:= libmota_mdk
+TARGET	:= build/libmota_mdk.a
 
-.PHONEY: clean $(TARGET)
+.PHONEY: clean
 
 all: setup $(TARGET)
 
 setup:
+	@echo $(AR) $(RANLIB)
 	@mkdir -p build
 	
 $(TARGET): $(OBJS)
+	$(AR) $(AR_FLAGS) $@ build/$(notdir $^)
+	$(RANLIB) $@
 
 %.o:%.cpp $(HEADS)
 	g++ -c -o build/$(notdir $@) $(filter-out %.h,$^) $(CXX_FLAGS) $(INC_FLAGS)

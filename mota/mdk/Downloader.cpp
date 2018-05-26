@@ -8,30 +8,26 @@ using namespace mota;
 using namespace mota::mdk;
 
 Downloader::Downloader()
-  : state_(kInvalid)
+  : state_(kInvalid),
+  eventLoopThread_(new EventLoopThread),
+  loop_(eventLoopSptr_.startLoop())
 {
 
 }
 
-bool Downloader::link(const string &src, const string &dst) {
+void Downloader::link(const string &src, const string &dst) {
   srcUrl_ = src;
   dstUrl_ = dst;
-  setState(kLinked);
-  return true;
 }
 
-bool Downloader::start()
+void Downloader::start()
 {
-
-  return true;
 }
 
-bool Downloader::stop()
+void Downloader::stop()
 {
-  return true;
 }
 
-bool Downloader::pause()
+void Downloader::pause()
 {
-  return true;
 }
