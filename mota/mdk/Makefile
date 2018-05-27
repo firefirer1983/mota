@@ -15,22 +15,26 @@ SRCS    := $(wildcard *.cpp)
 HEADS   := $(wildcard *.h)
 OBJS    := $(patsubst %.cpp, %.o, $(SRCS))
 
-TARGET	:= build/libmota_mdk.a
+OBJ_OUT_DIR	:= build/obj
+LIB_OUT_DIR := build/lib
+
+TARGET	:= $(LIB_OUT_DIR)/libmota_mdk.a
 
 .PHONEY: clean
 
 all: setup $(TARGET)
 
 setup:
-	@echo $(AR) $(RANLIB)
-	@mkdir -p build
+	@mkdir -p $(OBJ_OUT_DIR)
+	@mkdir -p $(LIB_OUT_DIR)
+
 	
-$(TARGET): $(OBJS)
-	$(AR) $(AR_FLAGS) $@ build/$(notdir $^)
+$(TARGET): $(addprefix $(OBJ_OUT_DIR)/, $(OBJS))
+	$(AR) $(AR_FLAGS) $@ $^
 	$(RANLIB) $@
 
-%.o:%.cpp $(HEADS)
-	g++ -c -o build/$(notdir $@) $(filter-out %.h,$^) $(CXX_FLAGS) $(INC_FLAGS)
+$(OBJ_OUT_DIR)/%.o:%.cpp $(HEADS)
+	$(CXX) -o $(OBJ_OUT_DIR)/$(notdir $@) -c $(filter-out %.h,$^) $(CXX_FLAGS) $(INC_FLAGS)
 
 clean:
 	rm -rf build/

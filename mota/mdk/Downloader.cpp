@@ -1,4 +1,5 @@
 #include <mota/mdk/Downloader.h>
+#include <muduo/base/noncopyable.h>
 
 #include <functional>
 
@@ -10,9 +11,14 @@ using namespace mota::mdk;
 Downloader::Downloader()
   : state_(kInvalid),
   eventLoopThread_(new EventLoopThread),
-  loop_(eventLoopSptr_.startLoop())
+  loop_(eventLoopThread_->startLoop()),
+  resolver_(new mota::mdk::Resolver(loop_))
 {
 
+}
+
+Downloader::~Downloader()
+{
 }
 
 void Downloader::link(const string &src, const string &dst) {
