@@ -36,3 +36,4 @@ muduo_stdc11/
 *.*/build/
 .idea/
 cmake-build-debug/
+http-parser/

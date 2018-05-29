@@ -7,11 +7,14 @@ MOTA_DIR := ../..
 MDK_DIR  := $(MOTA_DIR)/mota/mdk
 MDK_LIB_DIR := $(MDK_DIR)/build/lib
 
+HTTP_PARSER_DIR := ../../http-parser
+
 include $(MOTA_DIR)/tool-chain.mk
 
 INC     := .
 INC     += $(MUDUO_DIR)
 INC     += $(MOTA_DIR)
+INC		+= $(HTTP_PARSER_DIR)
 
 INC_FLAGS := $(foreach path, $(INC), -I$(path))
 
@@ -34,7 +37,7 @@ setup:
 
 	
 $(TARGET): $(addprefix $(OBJ_OUT_DIR)/, $(OBJS))
-	$(CXX) -o $@ $^ -L$(MDK_LIB_DIR) -lmota_mdk -L$(MUDUO_LIB_DIR) -lmuduo -lpthread -lcares -lz
+	$(CXX) -o $@ $^ -L$(MDK_LIB_DIR) -lmota_mdk -L$(MUDUO_LIB_DIR) -L$(HTTP_PARSER_DIR) -lhttp_parser -lmuduo  -lpthread -lcares -lz
 
 $(OBJ_OUT_DIR)/%.o:%.cpp $(HEADS)
 	$(CXX) -o $(OBJ_OUT_DIR)/$(notdir $@) -c $(filter-out %.h,$^) $(CXX_FLAGS) $(INC_FLAGS)
