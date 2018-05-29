@@ -8,4 +8,5 @@ all:
 	make -C mota/examples/
 
 clean:
+	make -C mota/examples/ clean
 	make -C $(MDK_DIR) clean

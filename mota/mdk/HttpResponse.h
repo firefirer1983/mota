@@ -44,8 +44,8 @@ class HttpResponse : public muduo::copyable
   enum HttpStatusCode
   {
     kUnknown,
-	k100_Contiue = 100,
-	k101_Swiching_Protocols = 101,
+    k100_Contiue = 100,
+    k101_Swiching_Protocols = 101,
     k200_OK = 200,
     k301_Moved_Permanently = 301,
     k400_Bad_Request = 400,
@@ -76,16 +76,16 @@ class HttpResponse : public muduo::copyable
   bool setStatusCode(const char* start, const char* end)
   { 
     std::string c(start, end);
-	printf("setStatusCode:[%s]\n", c.c_str());
-	auto it = StatusCodeMap.find(c);
-	if(it == StatusCodeMap.end()) {
-	  printf("set status code failed!\n");
-	  return false;
-	} else {
-	  printf("set status code success!\n");
+    printf("setStatusCode:[%s]\n", c.c_str());
+    auto it = StatusCodeMap.find(c);
+    if(it == StatusCodeMap.end()) {
+      printf("set status code failed!\n");
+      return false;
+    } else {
+      printf("set status code success!\n");
       statusCode_ = static_cast<HttpStatusCode>(it->second);
-	  return true;
-	}
+      return true;
+    }
   }
 
   void setStatusMessage(const std::string& message)
@@ -97,12 +97,42 @@ class HttpResponse : public muduo::copyable
   bool closeConnection() const
   { return closeConnection_; }
 
-  void setContentType(const std::string& contentType)
-  { addHeader("Content-Type", contentType); }
-
-  // FIXME: replace std::string with StringPiece
-  void addHeader(const std::string& key, const std::string& value)
-  { headers_[key] = value; }
+	size_t getContentLength() const
+  {
+		size_t len = 0;
+	  auto retItor = headers_.find("Content-Length");
+		if(retItor != headers_.end()) {
+		  len = static_cast<size_t>(atoi(retItor->second.c_str()));
+		}
+	  return len;
+	}
+	
+	bool getAcceptRanges() const
+  {
+		bool accept = false;
+	  auto retItor = headers_.find("Accept-Ranges");
+		if(retItor != headers_.end()) {
+		  accept = !(retItor->second.compare("bytes"));
+		}
+	  return accept;
+	}
+	
+  void addHeader(const char* start, const char* colon, const char* end)
+  {
+    std::string field(start, colon);
+    ++colon;
+    while (colon < end && isspace(*colon))
+    {
+      ++colon;
+    }
+    std::string value(colon, end);
+    while (!value.empty() && isspace(value[value.size()-1]))
+    {
+      value.resize(value.size()-1);
+    }
+    headers_[field] = value;
+		printf("addHeader[%s:%s]\n",field.c_str(), value.c_str());
+  }
 
   void setBody(const std::string& body)
   { body_ = body; }
@@ -112,7 +142,7 @@ class HttpResponse : public muduo::copyable
   void swap(HttpResponse& that)
   {
     std::swap(statusCode_, that.statusCode_);
-	std::swap(version_, that.version_);
+    std::swap(version_, that.version_);
     statusMessage_.swap(that.statusMessage_);
     std::swap(closeConnection_, that.closeConnection_);
     body_.swap(that.body_);

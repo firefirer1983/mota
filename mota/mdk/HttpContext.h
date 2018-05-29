@@ -53,10 +53,11 @@ class HttpContext : public muduo::copyable
   };
   
   HttpContext()
-    : rspState_(kExpectResponseLine)
+    : reqState_(kExpectRequestLine),
+	  rspState_(kExpectResponseLine)
   {
   }
-
+		
   // default copy-ctor, dtor and assignment are fine
   // return false if any error
   bool parseRequest(muduo::net::Buffer* buf, Timestamp receiveTime);
@@ -70,20 +71,24 @@ class HttpContext : public muduo::copyable
   // bool expectBody() const
   // { return state_ == kExpectBody; }
 
-  bool gotAll() const
+  bool gotRspAll() const
   { return rspState_ == kGotAllResponse; }
-
-  // void receiveRequestLine()
-  // { state_ = kExpectHeaders; }
-
-  // void receiveHeaders()
-  // { state_ = kGotAll; }  // FIXME
+	
+  bool gotReqAll() const
+  { return reqState_ == kGotAll; }
 
   void reset()
   {
+		reqState_ = kExpectRequestLine;
     rspState_ = kExpectResponseLine;
-    HttpResponse dummy(false);
-    response_.swap(dummy);
+    {
+			HttpResponse dummy;
+      response_.swap(dummy);
+    }
+    {
+		  HttpRequest dummy;
+      request_.swap(dummy);
+    }	
   }
 
   const HttpRequest& request() const

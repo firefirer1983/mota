@@ -126,11 +126,10 @@ bool HttpContext::processResponseLine(const char* begin, const char* end)
   bool succeed = false;
   const char* start = begin;
   const char* space = std::find(start, end, ' ');
-  string line(space+1,end);
-  printf("processLine: %s\n", line.c_str());
   if (space != end && response_.setStatusCode(space+1, end))
   {
-  
+	  response_.setVersion(*(space-1) == '0'?HttpResponse::kHttp10:*(space-1) == '1'?HttpResponse::kHttp11:HttpResponse::kUnknowVersion);
+    succeed = true;
   }
   return succeed;
 }
@@ -150,7 +149,7 @@ bool HttpContext::parseResponse(Buffer* buf, Timestamp receiveTime)
         ok = processResponseLine(buf->peek(), crlf);
         if (ok)
         {
-          request_.setReceiveTime(receiveTime);
+//          response_.setReceiveTime(receiveTime);
           buf->retrieveUntil(crlf + 2);
           rspState_ = kExpectResponseHeaders;
         }
@@ -172,12 +171,13 @@ bool HttpContext::parseResponse(Buffer* buf, Timestamp receiveTime)
         const char* colon = std::find(buf->peek(), crlf, ':');
         if (colon != crlf)
         {
-          request_.addHeader(buf->peek(), colon, crlf);
+          response_.addHeader(buf->peek(), colon, crlf);
         }
         else
         {
           // empty line, end of header
           // FIXME:
+          printf("empty line\n");
           rspState_ = kGotAllResponse;
           hasMore = false;
         }
