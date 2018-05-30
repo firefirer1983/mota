@@ -22,7 +22,7 @@ Url::Url(const char *url):
   for(int i=UF_SCHEMA; i<UF_MAX; i++) {
     if(fieldset_.test(i)) {
 	  parsed_.emplace_back((url_.data()+u.field_data[i].off), u.field_data[i].len);
-	  printf("%s\n", parsed_.back().c_str());
+	  printf("%d: %s\n", i, parsed_.back().c_str());
     } else {
       parsed_.emplace_back("");
     }
@@ -51,6 +51,7 @@ const char *Url::path()
 
 const char *Url::query() 
 {
+  printf("query:%s\n", parsed_[UF_QUERY].c_str());
   return parsed_[UF_QUERY].c_str();
 }
 

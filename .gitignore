@@ -34,6 +34,7 @@
 googletest/
 muduo_stdc11/
 *.*/build/*.*
+*/build/
 .idea/
 cmake-build-debug/
 http-parser/

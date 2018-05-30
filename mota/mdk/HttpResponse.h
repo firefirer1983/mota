@@ -88,6 +88,9 @@ class HttpResponse : public muduo::copyable
     }
   }
 
+  unsigned int getStatusCode() {
+    return static_cast<unsigned int>(statusCode_);
+  }
   void setStatusMessage(const std::string& message)
   { statusMessage_ = message; }
 
@@ -97,26 +100,36 @@ class HttpResponse : public muduo::copyable
   bool closeConnection() const
   { return closeConnection_; }
 
-	size_t getContentLength() const
+  size_t getContentLength() const
   {
-		size_t len = 0;
-	  auto retItor = headers_.find("Content-Length");
-		if(retItor != headers_.end()) {
-		  len = static_cast<size_t>(atoi(retItor->second.c_str()));
-		}
-	  return len;
-	}
+    size_t len = 0;
+    auto retItor = headers_.find("Content-Length");
+    if(retItor != headers_.end()) {
+      len = static_cast<size_t>(atoi(retItor->second.c_str()));
+    }
+    return len;
+  }
 	
-	bool getAcceptRanges() const
+  bool getAcceptRanges() const
   {
-		bool accept = false;
-	  auto retItor = headers_.find("Accept-Ranges");
-		if(retItor != headers_.end()) {
-		  accept = !(retItor->second.compare("bytes"));
-		}
-	  return accept;
-	}
-	
+    bool range = false;
+    auto retItor = headers_.find("Accept-Ranges");
+    if(retItor != headers_.end()) {
+      range = !(retItor->second.compare("bytes"));
+    }
+    return range;
+  }
+
+  bool getTransferEncoding() const
+  {
+    bool chunked = false;
+	auto retItor = headers_.find("Transfer-Encoding");
+	if(retItor != headers_.end()) {
+      chunked = !(retItor->second.compare("chunked"));
+    }
+    return chunked;
+  }
+  
   void addHeader(const char* start, const char* colon, const char* end)
   {
     std::string field(start, colon);

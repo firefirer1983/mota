@@ -128,7 +128,7 @@ bool HttpContext::processResponseLine(const char* begin, const char* end)
   const char* space = std::find(start, end, ' ');
   if (space != end && response_.setStatusCode(space+1, end))
   {
-	  response_.setVersion(*(space-1) == '0'?HttpResponse::kHttp10:*(space-1) == '1'?HttpResponse::kHttp11:HttpResponse::kUnknowVersion);
+    response_.setVersion(*(space-1) == '0'?HttpResponse::kHttp10:*(space-1) == '1'?HttpResponse::kHttp11:HttpResponse::kUnknowVersion);
     succeed = true;
   }
   return succeed;
