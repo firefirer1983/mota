@@ -177,7 +177,7 @@ bool HttpContext::parseResponse(Buffer* buf, Timestamp receiveTime)
         {
           // empty line, end of header
           // FIXME:
-          printf("empty line\n");
+//          printf("empty line\n");
           rspState_ = kGotAllResponse;
           hasMore = false;
         }

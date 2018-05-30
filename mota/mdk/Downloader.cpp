@@ -35,6 +35,12 @@ using namespace mota::mdk;
 
 using std::string;
 
+#define SET_STATE(x) \
+do{\
+  printf("SET_STATE %s %s %u ==> %s\n",__FILE__, __FUNCTION__ , __LINE__, #x);\
+  setState(x);\
+}while(0)
+
 void defaultStartCallBack(StartRet ret, unsigned short code) {
 }
 
@@ -45,7 +51,8 @@ Downloader::Downloader()
   loop_(eventLoopThread_->startLoop()),
   resolver_(loop_),
   fullFilelSize_(0),
-  acceptRanges_(false)
+  acceptRanges_(false),
+  chunk_(0)
 {
 
 }
@@ -70,7 +77,7 @@ void Downloader::resolveCallback(const string& host, const InetAddress &adr)
     client_->setMessageCallback(
           std::bind(&Downloader::onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     connect();
-    setState(kResolved);
+    SET_STATE(kResolved);
 	}
 }
 
@@ -81,7 +88,7 @@ void Downloader::link(const string &src) {
     Resolver::Callback resolveCB = std::bind(&Downloader::resolveCallback, this, srcUrl_.host(), std::placeholders::_1);
     muduo::net::EventLoop::Functor functor = std::bind(&Resolver::resolve, &resolver_, srcUrl_.host(), resolveCB);
     loop_->runInLoop(functor);
-    setState(kUrlValidated);
+    SET_STATE(kUrlValidated);
   } else {
     printf("no host to parse\n");
 		if(linkCallBack_)
@@ -97,9 +104,9 @@ void Downloader::start(size_t offset)
     oss << "GET " << srcUrl_.path();
     if(srcUrl_.hasQuery()) {
       oss <<"?";
-	  oss << srcUrl_.query();
+      oss << srcUrl_.query();
     }
-	oss << " HTTP/1.1" << "\r\n";
+    oss << " HTTP/1.1" << "\r\n";
     oss << "Host: " << srcUrl_.host() << "\r\n";
     oss << "User-Agent: mota/0.0.1" << "\r\n";
     oss << "Accept: */*\r\n";
@@ -110,7 +117,7 @@ void Downloader::start(size_t offset)
     printf("Req:\n%s\n", oss.str().c_str());
     Buffer input;
     input.append(oss.str().c_str(), oss.str().size());
-	printf("send GET req\n");
+	  printf("send GET req\n");
     connection_->send(input.toStringPiece().data(), static_cast<int>(input.readableBytes()));
   } else {
   }
@@ -133,24 +140,22 @@ void Downloader::onConnection(const TcpConnectionPtr& conn)
   MutexLockGuard lock(mutex_);
   if (conn->connected())
   {
-    setState(kConnected);
+    SET_STATE(kConnected);
     connection_ = conn;
 	
     std::ostringstream oss;
     oss << "HEAD " << srcUrl_.path();
     if(srcUrl_.hasQuery()) {
-	  oss <<"?";
-	  oss << srcUrl_.query();
+  	  oss <<"?";
+  	  oss << srcUrl_.query();
     }
-	oss << " HTTP/1.1" << "\r\n";
+	  oss << " HTTP/1.1" << "\r\n";
     oss << "Host: " << srcUrl_.host() << "\r\n";
     oss << "User-Agent: mota/0.0.1" << "\r\n";
     oss << "Accept: */*\r\n";
     oss << "\r\n";
     printf("Req:\n%s\n", oss.str().c_str());
-    Buffer input;
-    input.append(oss.str().c_str(), oss.str().size());
-    connection_->send(input.toStringPiece().data(), static_cast<int>(input.readableBytes()));
+    connection_->send(oss.str().c_str(), static_cast<int>(oss.str().size()));
   }
   else
   {
@@ -163,49 +168,64 @@ void Downloader::onMessage(const TcpConnectionPtr& conn,
 			   Timestamp receiveTime)
 {
   HttpContext ctx;
+	static size_t gotSize = 0;
   if(state_ == kConnected) {
     printf("Rsp:\n%s\n", buf->toStringPiece().data());
-	if(ctx.parseResponse(buf, receiveTime)){
+    if(ctx.parseResponse(buf, receiveTime)){
       fullFilelSize_ = ctx.response().getContentLength();
       acceptRanges_ = ctx.response().getAcceptRanges();
-	  setState(kHeaderOnlyExtracted);
-	  if(linkCallBack_)
-	    linkCallBack_(kLinkSuccess, ctx.response().getStatusCode(), fullFilelSize_);
-	}
+      SET_STATE(kHeaderOnlyExtracted);
+      if(linkCallBack_)
+        linkCallBack_(kLinkSuccess, ctx.response().getStatusCode(), fullFilelSize_);
+    }
   } else if(state_ == kHeaderOnlyExtracted) {
     if(ctx.parseResponse(buf, receiveTime)) {
-	  setState(kOnBodyTransfer);
-	  printf("extract GET Header successed!\n");
-	  printf("%lu bytes body get\n", buf->readableBytes());
-	  static size_t chunkSize = 0;
-	  
-	  if(ctx.response().getTransferEncoding()) {
-	    chunkSize = strtol(string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), nullptr, 16);
-		chunk_(new Chunk(chunkSize));
-		printf("chunked size:%s => %lu\n", string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), chunkSize);
-	  } else {
-	    chunk_(new Chunk(chunkSize));
-	  }
-	  chunk_->append(buf->peek(), buf->readableBytes());
-	  
-	  buf->retrieveAll();
-	  if(chunk_->isFull()) {
-        if(dataCallBack_) {
-          dataCallBack_(static_cast<Buffer*>(chunk_.get()), receiveTime);
-		  chunk_->retrieveAll();
-        }
-		if(stopCallBack_) {
-		  stopCallBack_();
-		}
-	  }
+      SET_STATE(kOnBodyTransfer);
+      printf("extract GET Header successed!\n");
+      static bool trunked = ctx.response().getTransferEncoding();
+      if(trunked) {
+        size_t chunkSize = strtol(string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), nullptr, 16);
+				fullFilelSize_ = chunkSize;
+			  Chunk tmp(chunkSize);
+			  chunk_.swap(tmp);
+        printf("chunked size:%s => %lu\n", string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), chunkSize);
+				chunk_.append(buf->peek(), buf->readableBytes());
+				gotSize = chunk_.readableBytes();
+				if(dataCallBack_) {
+					dataCallBack_(static_cast<Buffer*>(&chunk_), receiveTime);
+					chunk_.retrieveAll();
+				}
+      } else {
+        printf("==> body[%lu] Bytes\n", buf->readableBytes());
+        gotSize = buf->readableBytes();
+				if(dataCallBack_) {
+					dataCallBack_(buf, receiveTime);
+				}
+				buf->retrieveAll();
+      }
     } else {
-      printf("extract GET Header failed!\n");
+      printf("GET header on going!\n");
     }
+		
+		if(gotSize == fullFilelSize_) {
+			SET_STATE(kStopped);
+			if(stopCallBack_) {
+				stopCallBack_(kStopTransDone);
+			}
+		}
   } else if(state_ == kOnBodyTransfer) {
-    printf("%lu bytes body get\n", buf->readableBytes());
-    
-	buf->retrieveAll();
+    printf("==> body[%lu] Bytes\n", buf->readableBytes());
+		gotSize += buf->readableBytes();
+  	buf->retrieveAll();
+		
+		if(gotSize == fullFilelSize_) {
+			SET_STATE(kStopped);
+			if(stopCallBack_) {
+				stopCallBack_(kStopTransDone);
+			}
+		}
   }
 }
-
+				 
+void Downloader::setState(States s) { state_ = s; }
 

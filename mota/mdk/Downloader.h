@@ -3,6 +3,7 @@
 
 #include <mota/mdk/Resolver.h>
 #include <mota/mdk/Url.h>
+#include <mota/mdk/Chunk.h>
 
 #include <muduo/net/EventLoopThread.h>
 #include <muduo/base/noncopyable.h>
@@ -19,12 +20,14 @@ namespace mota
 {
 namespace mdk
 {
-enum StartRet {kStartDnsResFailed, kStartDnsResSuccess};
-enum LinkRet { kLinkAccessFail, kLinkUrlValidateFail, kLinkDnsResFail, kLinkConnectFail, kLinkHeadCheckFail, kLinkSuccess };
 
-typedef std::function<void(LinkRet, unsigned short, size_t)> LinkCallBack;
+enum StartRet { kStartDnsResFailed, kStartDnsResSuccess};
+enum LinkRet { kLinkAccessFail, kLinkUrlValidateFail, kLinkDnsResFail, kLinkConnectFail, kLinkHeadCheckFail, kLinkSuccess };
+enum StopRet { kStopTransDone, kStopOnErr};
+
+typedef std::function<void(LinkRet, unsigned int, size_t)> LinkCallBack;
 typedef std::function<void(StartRet, unsigned short)> StartCallBack;
-typedef std::function<void()> StopCallBack;
+typedef std::function<void(StopRet)> StopCallBack;
 typedef std::function<void()> PauseCallBack;
 typedef std::function<void()> ResumeCallBack;
 
@@ -59,7 +62,7 @@ private:
   bool acceptRanges_;
   muduo::net::TcpConnectionPtr connection_;
   muduo::MutexLock mutex_;
-  std::unique_ptr<Chunk> chunk_;
+  Chunk chunk_;
   
   LinkCallBack linkCallBack_;
   StartCallBack startCallBack_;
@@ -68,7 +71,7 @@ private:
   ResumeCallBack resumeCallBack;
   DataCallBack dataCallBack_;
   
-  void setState(States s) { state_ = s; };
+  void setState(States s);
   
   void connect() { client_->connect();}
   void disconnect() { client_->disconnect();}

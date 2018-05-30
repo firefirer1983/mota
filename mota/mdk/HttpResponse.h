@@ -144,7 +144,7 @@ class HttpResponse : public muduo::copyable
       value.resize(value.size()-1);
     }
     headers_[field] = value;
-		printf("addHeader[%s:%s]\n",field.c_str(), value.c_str());
+//		printf("addHeader[%s:%s]\n",field.c_str(), value.c_str());
   }
 
   void setBody(const std::string& body)
