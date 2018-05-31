@@ -79,10 +79,8 @@ class HttpResponse : public muduo::copyable
     printf("setStatusCode:[%s]\n", c.c_str());
     auto it = StatusCodeMap.find(c);
     if(it == StatusCodeMap.end()) {
-      printf("set status code failed!\n");
       return false;
     } else {
-      printf("set status code success!\n");
       statusCode_ = static_cast<HttpStatusCode>(it->second);
       return true;
     }

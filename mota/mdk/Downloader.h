@@ -10,6 +10,7 @@
 #include <muduo/base/Mutex.h>
 #include <muduo/net/TcpClient.h>
 #include <muduo/net/Buffer.h>
+#include <muduo/base/Mutex.h>
 
 #include <string>
 #include <functional>
@@ -21,6 +22,8 @@ namespace mota
 namespace mdk
 {
 
+
+
 enum StartRet { kStartDnsResFailed, kStartDnsResSuccess};
 enum LinkRet { kLinkAccessFail, kLinkUrlValidateFail, kLinkDnsResFail, kLinkConnectFail, kLinkHeadCheckFail, kLinkSuccess };
 enum StopRet { kStopTransDone, kStopOnErr};
@@ -31,7 +34,7 @@ typedef std::function<void(StopRet)> StopCallBack;
 typedef std::function<void()> PauseCallBack;
 typedef std::function<void()> ResumeCallBack;
 
-typedef std::function<void(muduo::net::Buffer *, muduo::Timestamp)> DataCallBack;
+typedef std::function<void(muduo::net::Buffer*, muduo::Timestamp, muduo::MutexLock*)> DataCallBack;
 
 class Downloader: muduo::noncopyable {
 public:
@@ -39,7 +42,7 @@ public:
   ~Downloader();
   void link(const std::string &src);
   void start(size_t offset);
-  void stop();
+  void stop() { client_->stop();}
   void pause();
   
   void setLinkCallBack(const LinkCallBack &cb){ linkCallBack_ = cb; };
@@ -81,8 +84,9 @@ private:
 				 muduo::Timestamp receiveTime);
 
   void resolveCallback(const std::string& host, const muduo::net::InetAddress &adr);
-  
+  static muduo::MutexLock dataCBLock_;
 };
+
 
 
 }

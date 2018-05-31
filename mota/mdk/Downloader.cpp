@@ -41,9 +41,10 @@ do{\
   setState(x);\
 }while(0)
 
+muduo::MutexLock Downloader::dataCBLock_;
+
 void defaultStartCallBack(StartRet ret, unsigned short code) {
 }
-
 
 Downloader::Downloader()
   : state_(kInit),
@@ -75,7 +76,10 @@ void Downloader::resolveCallback(const string& host, const InetAddress &adr)
     std::bind(&Downloader::onConnection, this, std::placeholders::_1));
     client_->enableRetry();
     client_->setMessageCallback(
-          std::bind(&Downloader::onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+          std::bind(&Downloader::onMessage,
+          this, std::placeholders::_1, 
+          std::placeholders::_2, 
+          std::placeholders::_3));
     connect();
     SET_STATE(kResolved);
 	}
@@ -121,10 +125,6 @@ void Downloader::start(size_t offset)
     connection_->send(input.toStringPiece().data(), static_cast<int>(input.readableBytes()));
   } else {
   }
-}
-
-void Downloader::stop()
-{
 }
 
 void Downloader::pause()
@@ -184,47 +184,66 @@ void Downloader::onMessage(const TcpConnectionPtr& conn,
       printf("extract GET Header successed!\n");
       static bool trunked = ctx.response().getTransferEncoding();
       if(trunked) {
-        size_t chunkSize = strtol(string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), nullptr, 16);
-				fullFilelSize_ = chunkSize;
-			  Chunk tmp(chunkSize);
-			  chunk_.swap(tmp);
-        printf("chunked size:%s => %lu\n", string(buf->peek(),buf->findCRLF(buf->peek())).c_str(), chunkSize);
-				chunk_.append(buf->peek(), buf->readableBytes());
-				gotSize = chunk_.readableBytes();
+        const char *crlf = buf->findCRLF(buf->peek());
+        fullFilelSize_ = strtol(string(buf->peek(), crlf).c_str(), nullptr, 16);
+        printf("chunked size: %lu\n", fullFilelSize_);
+        Chunk tmp(fullFilelSize_);
+        chunk_.swap(tmp);
+        
+        buf->retrieveUntil(crlf+2);
+        
+        
+				chunk_.append(buf->peek(), fullFilelSize_);
+				gotSize += chunk_.readableBytes();
+        
 				if(dataCallBack_) {
-					dataCallBack_(static_cast<Buffer*>(&chunk_), receiveTime);
-					chunk_.retrieveAll();
-				}
+					dataCallBack_(static_cast<Buffer*>(&chunk_), receiveTime, &dataCBLock_);
+				} else {
+				  chunk_.retrieveAll();
+        }
       } else {
-        printf("==> body[%lu] Bytes\n", buf->readableBytes());
-        gotSize = buf->readableBytes();
+//        printf("==> body[%lu] Bytes\n", buf->readableBytes());
+        gotSize += buf->readableBytes();
+
 				if(dataCallBack_) {
-					dataCallBack_(buf, receiveTime);
-				}
-				buf->retrieveAll();
+					dataCallBack_(buf, receiveTime, &dataCBLock_);
+				} else {
+				  buf->retrieveAll();
+        }
       }
     } else {
       printf("GET header on going!\n");
     }
 		
-		if(gotSize == fullFilelSize_) {
-			SET_STATE(kStopped);
-			if(stopCallBack_) {
-				stopCallBack_(kStopTransDone);
-			}
-		}
+    if(gotSize == fullFilelSize_) {
+      SET_STATE(kStopped);
+      if(stopCallBack_) {
+        client_->stop();
+        stopCallBack_(kStopTransDone);
+        gotSize = 0;
+      }
+    }
   } else if(state_ == kOnBodyTransfer) {
-    printf("==> body[%lu] Bytes\n", buf->readableBytes());
-		gotSize += buf->readableBytes();
-  	buf->retrieveAll();
-		
-		if(gotSize == fullFilelSize_) {
-			SET_STATE(kStopped);
-			if(stopCallBack_) {
-				stopCallBack_(kStopTransDone);
-			}
-		}
+//    printf("==> body[%lu] Bytes\n", buf->readableBytes());
+    gotSize += buf->readableBytes();
+
+    if(dataCallBack_) {
+      dataCallBack_(buf, receiveTime, &dataCBLock_);
+    } else {
+      buf->retrieveAll();
+    }
+    
+    if(gotSize == fullFilelSize_) {
+        SET_STATE(kStopped);
+        if(stopCallBack_) {
+          client_->stop();
+          stopCallBack_(kStopTransDone);
+      }
+    }
+  } else {
+    printf("unknow state\n");
   }
+  printf("<%lu>\n",gotSize);
 }
 				 
 void Downloader::setState(States s) { state_ = s; }
