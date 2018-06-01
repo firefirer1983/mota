@@ -3,7 +3,7 @@
 
 #include <mota/mdk/Resolver.h>
 #include <mota/mdk/Url.h>
-#include <mota/mdk/Chunk.h>
+#include <mota/mdk/DataFilter.h>
 
 #include <muduo/net/EventLoopThread.h>
 #include <muduo/base/noncopyable.h>
@@ -28,7 +28,7 @@ enum StartRet { kStartDnsResFailed, kStartDnsResSuccess};
 enum LinkRet { kLinkAccessFail, kLinkUrlValidateFail, kLinkDnsResFail, kLinkConnectFail, kLinkHeadCheckFail, kLinkSuccess };
 enum StopRet { kStopTransDone, kStopOnErr};
 
-typedef std::function<void(LinkRet, unsigned int, size_t)> LinkCallBack;
+typedef std::function<void(LinkRet, unsigned short, size_t)> LinkCallBack;
 typedef std::function<void(StartRet, unsigned short)> StartCallBack;
 typedef std::function<void(StopRet)> StopCallBack;
 typedef std::function<void()> PauseCallBack;
@@ -65,7 +65,7 @@ private:
   bool acceptRanges_;
   muduo::net::TcpConnectionPtr connection_;
   muduo::MutexLock mutex_;
-  Chunk chunk_;
+  DataFilter filter_;
   
   LinkCallBack linkCallBack_;
   StartCallBack startCallBack_;
@@ -79,10 +79,9 @@ private:
   void connect() { client_->connect();}
   void disconnect() { client_->disconnect();}
   void onConnection(const muduo::net::TcpConnectionPtr& conn);
-  void onMessage(const muduo::net::TcpConnectionPtr& conn,
+  void onData(const muduo::net::TcpConnectionPtr& conn,
 				 muduo::net::Buffer* buf,
 				 muduo::Timestamp receiveTime);
-
   void resolveCallback(const std::string& host, const muduo::net::InetAddress &adr);
   static muduo::MutexLock dataCBLock_;
 };

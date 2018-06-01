@@ -52,8 +52,7 @@ Downloader::Downloader()
   loop_(eventLoopThread_->startLoop()),
   resolver_(loop_),
   fullFilelSize_(0),
-  acceptRanges_(false),
-  chunk_(0)
+  acceptRanges_(false)
 {
 
 }
@@ -76,7 +75,7 @@ void Downloader::resolveCallback(const string& host, const InetAddress &adr)
     std::bind(&Downloader::onConnection, this, std::placeholders::_1));
     client_->enableRetry();
     client_->setMessageCallback(
-          std::bind(&Downloader::onMessage,
+          std::bind(&Downloader::onData,
           this, std::placeholders::_1, 
           std::placeholders::_2, 
           std::placeholders::_3));
@@ -123,6 +122,7 @@ void Downloader::start(size_t offset)
     input.append(oss.str().c_str(), oss.str().size());
 	  printf("send GET req\n");
     connection_->send(input.toStringPiece().data(), static_cast<int>(input.readableBytes()));
+    printf("send GET req done!\n");
   } else {
   }
 }
@@ -163,88 +163,33 @@ void Downloader::onConnection(const TcpConnectionPtr& conn)
   }
 }
 
-void Downloader::onMessage(const TcpConnectionPtr& conn,
+void Downloader::onData(const TcpConnectionPtr& conn,
 			   Buffer* buf,
 			   Timestamp receiveTime)
 {
-  HttpContext ctx;
-	static size_t gotSize = 0;
-  if(state_ == kConnected) {
-    printf("Rsp:\n%s\n", buf->toStringPiece().data());
-    if(ctx.parseResponse(buf, receiveTime)){
-      fullFilelSize_ = ctx.response().getContentLength();
-      acceptRanges_ = ctx.response().getAcceptRanges();
-      SET_STATE(kHeaderOnlyExtracted);
-      if(linkCallBack_)
-        linkCallBack_(kLinkSuccess, ctx.response().getStatusCode(), fullFilelSize_);
+  static bool header = false;
+  if(!header && filter_.header(buf, receiveTime)) {
+    header = true;
+    printf("header ok!\n");
+    if(linkCallBack_) {
+      linkCallBack_(kLinkSuccess, filter_.getStatusCode(), filter_.getContentLength());
     }
-  } else if(state_ == kHeaderOnlyExtracted) {
-    if(ctx.parseResponse(buf, receiveTime)) {
-      SET_STATE(kOnBodyTransfer);
-      printf("extract GET Header successed!\n");
-      static bool trunked = ctx.response().getTransferEncoding();
-      if(trunked) {
-        const char *crlf = buf->findCRLF(buf->peek());
-        fullFilelSize_ = strtol(string(buf->peek(), crlf).c_str(), nullptr, 16);
-        printf("chunked size: %lu\n", fullFilelSize_);
-        Chunk tmp(fullFilelSize_);
-        chunk_.swap(tmp);
-        
-        buf->retrieveUntil(crlf+2);
-        
-        
-				chunk_.append(buf->peek(), fullFilelSize_);
-				gotSize += chunk_.readableBytes();
-        
-				if(dataCallBack_) {
-					dataCallBack_(static_cast<Buffer*>(&chunk_), receiveTime, &dataCBLock_);
-				} else {
-				  chunk_.retrieveAll();
-        }
-      } else {
-//        printf("==> body[%lu] Bytes\n", buf->readableBytes());
-        gotSize += buf->readableBytes();
-
-				if(dataCallBack_) {
-					dataCallBack_(buf, receiveTime, &dataCBLock_);
-				} else {
-				  buf->retrieveAll();
-        }
+    buf->retrieveAll();
+  } else if(header) {
+    if(filter_.body(buf, receiveTime)) {
+      if(dataCallBack_) {
+        dataCallBack_(buf, receiveTime, &dataCBLock_);
       }
-    } else {
-      printf("GET header on going!\n");
     }
-		
-    if(gotSize == fullFilelSize_) {
-      SET_STATE(kStopped);
+    if(filter_.isFinished()) {
       if(stopCallBack_) {
         client_->stop();
         stopCallBack_(kStopTransDone);
-        gotSize = 0;
       }
     }
-  } else if(state_ == kOnBodyTransfer) {
-//    printf("==> body[%lu] Bytes\n", buf->readableBytes());
-    gotSize += buf->readableBytes();
-
-    if(dataCallBack_) {
-      dataCallBack_(buf, receiveTime, &dataCBLock_);
-    } else {
-      buf->retrieveAll();
-    }
-    
-    if(gotSize == fullFilelSize_) {
-        SET_STATE(kStopped);
-        if(stopCallBack_) {
-          client_->stop();
-          stopCallBack_(kStopTransDone);
-      }
-    }
-  } else {
-    printf("unknow state\n");
   }
-  printf("<%lu>\n",gotSize);
 }
+
 				 
 void Downloader::setState(States s) { state_ = s; }
 

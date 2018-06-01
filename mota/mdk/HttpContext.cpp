@@ -149,7 +149,7 @@ bool HttpContext::parseResponse(Buffer* buf, Timestamp receiveTime)
         ok = processResponseLine(buf->peek(), crlf);
         if (ok)
         {
-//          response_.setReceiveTime(receiveTime);
+          response_.setReceiveTime(receiveTime);
           buf->retrieveUntil(crlf + 2);
           rspState_ = kExpectResponseHeaders;
         }

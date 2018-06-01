@@ -14,6 +14,7 @@
 #include <muduo/base/copyable.h>
 #include <muduo/base/Types.h>
 #include <muduo/net/Buffer.h>
+#include <muduo/base/Timestamp.h>
 
 #include <map>
 namespace muduo
@@ -86,8 +87,8 @@ class HttpResponse : public muduo::copyable
     }
   }
 
-  unsigned int getStatusCode() {
-    return static_cast<unsigned int>(statusCode_);
+  unsigned short getStatusCode() {
+    return static_cast<unsigned short>(statusCode_);
   }
   void setStatusMessage(const std::string& message)
   { statusMessage_ = message; }
@@ -147,6 +148,9 @@ class HttpResponse : public muduo::copyable
 
   void setBody(const std::string& body)
   { body_ = body; }
+  
+  void setReceiveTime(muduo::Timestamp t)
+  { receiveTime_ = t; }
 
   void appendToBuffer(muduo::net::Buffer* output) const;
   
@@ -167,6 +171,7 @@ class HttpResponse : public muduo::copyable
   // FIXME: add http version
   std::string statusMessage_;
   bool closeConnection_;
+  muduo::Timestamp receiveTime_;
   std::string body_;
 };
 

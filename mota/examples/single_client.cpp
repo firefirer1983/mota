@@ -5,6 +5,7 @@
 #include <muduo/base/Mutex.h>
 
 #include <mota/mdk/Downloader.h>
+#include <mota/mdk/Chunk.h>
 
 #include <memory>
 
