@@ -34,7 +34,7 @@ typedef std::function<void(StopRet)> StopCallBack;
 typedef std::function<void()> PauseCallBack;
 typedef std::function<void()> ResumeCallBack;
 
-typedef std::function<void(muduo::net::Buffer*, muduo::Timestamp, muduo::MutexLock*)> DataCallBack;
+typedef std::function<void(muduo::net::Buffer*, muduo::Timestamp, muduo::MutexLock*, size_t, size_t)> DataCallBack;
 
 class Downloader: muduo::noncopyable {
 public:
@@ -76,13 +76,12 @@ private:
   
   void setState(States s);
   
-  void connect() { client_->connect();}
   void disconnect() { client_->disconnect();}
-  void onConnection(const muduo::net::TcpConnectionPtr& conn);
+  void onConnect(const muduo::net::TcpConnectionPtr& conn);
   void onData(const muduo::net::TcpConnectionPtr& conn,
 				 muduo::net::Buffer* buf,
 				 muduo::Timestamp receiveTime);
-  void resolveCallback(const std::string& host, const muduo::net::InetAddress &adr);
+  void onResolve(const std::string& host, const muduo::net::InetAddress &adr);
   static muduo::MutexLock dataCBLock_;
 };
 

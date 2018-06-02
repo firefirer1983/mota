@@ -18,17 +18,16 @@ bool DataFilter::header(Buffer *buf, Timestamp timeStamp)
     contentLength_ = ctx_.response().getContentLength();
     acceptRange_ = ctx_.response().getAcceptRanges();
     statusCode_ = ctx_.response().getStatusCode();
-    ctx_.reset();
+    hasHeader_ = true;
   }
   return ok;
 }
 
 size_t DataFilter::body(Buffer *buf, Timestamp timeStamp) {
-  static bool headerReceived = false;
   size_t received = 0;
-  if(headerReceived || ctx_.parseResponse(buf, timeStamp)) {
-    if(!headerReceived) {
-      headerReceived = true;
+  if(hasHeader_ || ctx_.parseResponse(buf, timeStamp)) {
+    if(!hasHeader_) {
+      hasHeader_ = true;
       transferEncoding_ = ctx_.response().getTransferEncoding();
       
       if(transferEncoding_) {
@@ -44,7 +43,6 @@ size_t DataFilter::body(Buffer *buf, Timestamp timeStamp) {
         partialLength_ += buf->readableBytes();
         received = buf->readableBytes();
       }
-      ctx_.reset();
     } else {
       if(partialLength_ >= contentLength_) {
         received = 0;
@@ -61,3 +59,13 @@ size_t DataFilter::body(Buffer *buf, Timestamp timeStamp) {
   return received;
 }
 
+
+void DataFilter::reset(){
+  ctx_.reset();
+  hasHeader_ = false;
+  contentLength_ = 0;
+  partialLength_ = 0;
+  statusCode_ = 0;
+  acceptRange_ = false;
+  transferEncoding_ = false;
+}

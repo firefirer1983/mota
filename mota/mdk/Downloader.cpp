@@ -54,14 +54,13 @@ Downloader::Downloader()
   fullFilelSize_(0),
   acceptRanges_(false)
 {
-
 }
 
 Downloader::~Downloader()
 {
 }
 
-void Downloader::resolveCallback(const string& host, const InetAddress &adr)
+void Downloader::onResolve(const string& host, const InetAddress &adr)
 {
   printf("host:%s => %s:%u\n", srcUrl_.host(), adr.toIp().c_str(), adr.toPort());
 	if(!adr.toIp().compare("0.0.0.0")){
@@ -70,16 +69,25 @@ void Downloader::resolveCallback(const string& host, const InetAddress &adr)
 	  }
 	} else {
     InetAddress inetAdr(adr.toIp().c_str(), 80);
-    client_.reset(new TcpClient(loop_, inetAdr, "motaClient"));
-    client_->setConnectionCallback(
-    std::bind(&Downloader::onConnection, this, std::placeholders::_1));
+    
+    client_.reset(new TcpClient(loop_, 
+                                inetAdr, 
+                                "motaClient"));
+    
+    client_->setConnectionCallback(std::bind(&Downloader::onConnect, 
+                                              this, 
+                                              std::placeholders::_1));
+    
     client_->enableRetry();
+    
     client_->setMessageCallback(
           std::bind(&Downloader::onData,
           this, std::placeholders::_1, 
           std::placeholders::_2, 
           std::placeholders::_3));
-    connect();
+    
+    client_->connect();
+    
     SET_STATE(kResolved);
 	}
 }
@@ -88,9 +96,9 @@ void Downloader::link(const string &src) {
   srcUrl_ = Url(src.c_str());
   if(srcUrl_.hasHost()) {
 		printf("resolve host:%s\n", srcUrl_.host());
-    Resolver::Callback resolveCB = std::bind(&Downloader::resolveCallback, this, srcUrl_.host(), std::placeholders::_1);
-    muduo::net::EventLoop::Functor functor = std::bind(&Resolver::resolve, &resolver_, srcUrl_.host(), resolveCB);
-    loop_->runInLoop(functor);
+    Resolver::Callback resolveCB = std::bind(&Downloader::onResolve, this, srcUrl_.host(), std::placeholders::_1);
+    muduo::net::EventLoop::Functor resolveHost = std::bind(&Resolver::resolve, &resolver_, srcUrl_.host(), resolveCB);
+    loop_->runInLoop(resolveHost);
     SET_STATE(kUrlValidated);
   } else {
     printf("no host to parse\n");
@@ -131,7 +139,7 @@ void Downloader::pause()
 {
 }
 
-void Downloader::onConnection(const TcpConnectionPtr& conn)
+void Downloader::onConnect(const TcpConnectionPtr& conn)
 {
   LOG_DEBUG << conn->localAddress().toIpPort() << " -> "
            << conn->peerAddress().toIpPort() << " is "
@@ -175,13 +183,16 @@ void Downloader::onData(const TcpConnectionPtr& conn,
       linkCallBack_(kLinkSuccess, filter_.getStatusCode(), filter_.getContentLength());
     }
     buf->retrieveAll();
+    filter_.reset();
   } else if(header) {
-    if(filter_.body(buf, receiveTime)) {
+    size_t len = filter_.body(buf, receiveTime);
+    if(len) {
       if(dataCallBack_) {
-        dataCallBack_(buf, receiveTime, &dataCBLock_);
+        dataCallBack_(buf, receiveTime, &dataCBLock_, len, filter_.getContentLength());
       }
     }
     if(filter_.isFinished()) {
+      filter_.reset();
       if(stopCallBack_) {
         client_->stop();
         stopCallBack_(kStopTransDone);
@@ -190,6 +201,5 @@ void Downloader::onData(const TcpConnectionPtr& conn,
   }
 }
 
-				 
 void Downloader::setState(States s) { state_ = s; }
 
